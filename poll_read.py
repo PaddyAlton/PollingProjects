@@ -17,3 +17,4 @@ all_data = dict(list(zip(data.dtype.names,dlist)))
 
 df = pd.DataFrame(all_data)
 
+months = df['months'].values
