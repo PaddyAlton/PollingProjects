@@ -27,7 +27,7 @@ def dt_convert(item):
 	else: return str(item).split(' ')[0]
 
 # reads in all four Excel sheets as a python dictionary
-test = pd.read_excel("C://Users/Laptop/Documents/GitHub/polling_projects/test_excel1.xlsx", sheetname=None, converters={'date conducted':dt_convert}) 
+test = pd.read_excel("C://Users/Laptop/Documents/GitHub/polling_projects/UK_polling_2005_to_present.xlsx", sheetname=None, converters={'date conducted':dt_convert}) 
 
 # extract each DataFrame and name it appropriately:
 polls2010 = test['For 2010'] # polling from 2005 - 2010

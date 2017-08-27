@@ -1,0 +1,13 @@
+This is my code for plotting/analysing the results of UK political polls.
+
+Currently contains only a handful of files I've tidied up:
+
+(1) UK_polling_2005_to_present.xlsx 
+
+-- an excel file with four sheets (2005-2010, 2010-2015, 2015-2017, 2017-2022)
+   which contain all polling by BPC members as collated on the appropriate Wikipedia
+   pages.
+
+(2) poll_read.py
+
+-- a python script for visualising how the polls have changed over the last decade +.
