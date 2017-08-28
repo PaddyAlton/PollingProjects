@@ -12,6 +12,6 @@ Currently contains only a handful of files I've tidied up:
 
 -- a python script for visualising how the polls have changed over the last decade +.
 
-(3) exampl_output.png 
+(3) example_output.png 
 
 -- an example plot from poll_read.py
