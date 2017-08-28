@@ -181,6 +181,51 @@ ax.tick_params(labelsize=20)
 ax.set_xlim(polls.frac_year.iloc[-1]-0.01,polls.frac_year.iloc[0])
 ax.set_ylim(0,55.)
 
+ax.get_xaxis().get_major_formatter().set_useOffset(False) # keep years labelled informatively (standard form is not very intelligible here)
 
+#plt.show() # (only does anything if you switch interactive plotting off)
 
-plt.show() # (only does anything if you switch interactive plotting off)
+## uncomment to save a comma-separated-values file of the polls DataFrame.
+# polls.to_csv('C://Users/Laptop/Documents/GitHub/polling_projects/all_polls.csv')
+
+### ADDITIONAL ANALYSIS
+
+company_client_lists = polls['Polling organisation/client'].str.split('/').values
+
+polls['pollster'] = [list[0] for list in company_client_lists]
+polls['client'] = [list[1] if len(list)>1 else 'N/A' for list in company_client_lists]
+
+colarr=np.array([col for col in polls.columns])
+
+polls = polls[colarr[[11,0,3,2,10,1,8,6,9,12,13]]] # rejig into a preferred format 
+
+# There are a whole bunch of pollsters with near-identical names, which we'd like to replace with one unified name
+
+### pollster finders
+elec_finder = polls.pollster.str.contains('[Ee]lection') # actual election results
+
+polls.pollster.loc[elec_finder] = 'General Election'
+
+pseudonym_list = ['Angus', 'Ashcroft', 'BMG', 'BPIX', 'Harris', 'MORI', 'Opinium', 'Panelbase', 'Populus', 'Survation', 'SurveyMonkey', 'TNS']
+
+finders = {}
+
+for pseud in pseudonym_list: finders[pseud] = polls.pollster.str.upper().str.contains(pseud.upper()) # create a mask for each pseudonym
+
+for pseud in pseudonym_list: polls.pollster.loc[finders[pseud]] = pseud # replace each found entry with the pseudonym
+
+### plotting code - allows us to verify that this has worked (commented out as test was passed)
+
+#f2,ax2=plt.subplots()
+#f2.set_tight_layout(True)
+#sns.countplot(x='pollster',data=polls,ax=ax2)
+#plt.xticks(rotation=45)
+
+### the above code allows results from individual pollsters to be isolated and analysed. 
+### Leveraging this, we now plot the actual results of the 05, 10, 15, and 17 elections:
+
+mask = polls.pollster == 'General Election'
+
+for part in parties: 
+	ax.plot(polls.frac_year.loc[mask], polls[part].loc[mask].values, 'ks', markersize=16)
+	ax.errorbar(polls.frac_year.loc[mask], polls[part].loc[mask].values, yerr=formal_error(polls.loc[mask], part), fmt='s', color=c_dict[part], markersize=12)
