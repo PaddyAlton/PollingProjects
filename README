@@ -15,3 +15,13 @@ Currently contains only a handful of files I've tidied up:
 (3) example_output.png 
 
 -- an example plot from poll_read.py
+
+(4) Scots_independence_polls.xlsx
+
+-- an excel file with one sheet, containing all the polls on the question "Should
+   Scotland be an independent country?" from 2013-2017.
+
+(5) scot_polls.py
+
+-- a python script for visualising how support for Scottish Independence has varied
+   over time.
