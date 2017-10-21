@@ -1,6 +1,4 @@
-This is my code for plotting/analysing the results of UK political polls.
-
-Currently contains only a handful of files I've tidied up:
+This is some of my code for plotting/analysing the results of UK political polls.
 
 (1) UK_polling_2005_to_present.xlsx 
 
@@ -12,36 +10,41 @@ Currently contains only a handful of files I've tidied up:
 
 -- a python script for visualising how the polls have changed over the last decade +.
 
-(3) example_output.png 
-
--- an example plot from poll_read.py
-
 --------------------
 
-(4) Scots_independence_polls.xlsx
+(3) Scots_independence_polls.xlsx
 
 -- an excel file with one sheet, containing all the polls on the question "Should
    Scotland be an independent country?" from 2013-2017.
 
-(5) scot_polls.py
+(4) scot_polls.py
 
 -- a python script for visualising how support for Scottish Independence has varied
    over time.
 
 ---------------------
 
-(6) BES_2015_election_results.xlsx
-(7) hanretty_EU_ref_figs.xlsx
-(8) Westminster_Parliamentary_Constituencies_December_2016_Ultra_Generalised_Clipped_Boundaries_in_Great_Britain.geojson
+(5) BES_2015_election_results.xlsx
+(6) hanretty_EU_ref_figs.xlsx
+(7) Westminster_Parliamentary_Constituencies_December_2016_Ultra_Generalised_Clipped_Boundaries_in_Great_Britain.geojson
 
--- files containing: the British Electoral Survey collated election & demographic data for 2015, estimates for the
-   EU referendum result in each constituency, and the constituency boundaries and IDs in a .geojson file.
+-- files containing: the British Electoral Survey collated election & demographic data 
+   for 2015, estimates for the EU referendum result in each constituency, and the 
+   constituency boundaries and IDs in a .geojson file.
 
-(9) election_map_script.py
+(8) election_map_script.py
 
--- script for making .html zoomable, colour-coded maps of constituency based data, currently written to produce such
-   a map for the EU referendum result (but this could easily be changed to plot e.g. demographic data.
+-- script for making .html zoomable, colour-coded maps of constituency based data, 
+   currently written to produce such a map for the EU referendum result 
+   (but this could easily be changed to plot e.g. demographic data.
 
-(10) referendum_map.html
+EXAMPLES FOLDER:
+
+(1) example_output.png 
+
+-- an example plot from poll_read.py
+
+
+(2) referendum_map.html
 
 -- example output from election_map_script.py (can be viewed in your browser)

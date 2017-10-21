@@ -33,4 +33,4 @@ test_map = folium.Map(location=[55,3.5], zoom_start=3, tiles='Mapbox Bright') # 
 test_map.choropleth(wcon_geo, data=BES, fill_color='RdBu', columns=['ONSConstID','Remain'], threshold_scale=[20,35,50,65,80], key_on='feature.properties.pcon16cd', legend_name='EU referendum % Remain')
 # boundaries come from the .json, data from the BES dataframe, columns=[ID to match on, data column to plot]
 
-test_map.save(data_dir+'referendum_map.html') # create output
+test_map.save(data_dir+'Examples/referendum_map.html') # create output
