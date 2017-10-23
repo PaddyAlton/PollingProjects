@@ -34,9 +34,14 @@ This is some of my code for plotting/analysing the results of UK political polls
 
 (8) election_map_script.py
 
--- script for making .html zoomable, colour-coded maps of constituency based data, 
+-- script for making zoomable, colour-coded HTML maps of constituency based data, 
    currently written to produce such a map for the EU referendum result 
    (but this could easily be changed to plot e.g. demographic data.
+
+(9) bokeh_example_map.py
+
+-- script for making zoomable, colour-coded, *interactive* maps of constituency data,
+   currently written to produce such a map for the EU referendum result.
 
 EXAMPLES FOLDER:
 
@@ -48,3 +53,7 @@ EXAMPLES FOLDER:
 (2) referendum_map.html
 
 -- example output from election_map_script.py (can be viewed in your browser)
+
+(3) interactive_referendum_map.html
+
+-- example output from bokeh_example_map.py (can be viewed in your browser)
