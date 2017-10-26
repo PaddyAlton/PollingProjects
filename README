@@ -43,17 +43,26 @@ This is some of my code for plotting/analysing the results of UK political polls
 -- script for making zoomable, colour-coded, *interactive* maps of constituency data,
    currently written to produce such a map for the EU referendum result.
 
-EXAMPLES FOLDER:
+(10) elections_ML.py
+
+-- script for using scikit-learn methods on the BES dataset to predict electoral outcomes;
+   currently uses Lasso regression to predict the EU referendum result in each constituency
+   based on a variety of electoral and demographic data.
+
+SEE paddyalton.github.io FOR EXAMPLE OUTPUT FROM THESE PROJECTS:
 
 (1) example_output.png 
 
 -- an example plot from poll_read.py
 
-
 (2) referendum_map.html
 
--- example output from election_map_script.py (can be viewed in your browser)
+-- example output from election_map_script.py
 
 (3) interactive_referendum_map.html
 
--- example output from bokeh_example_map.py (can be viewed in your browser)
+-- example output from bokeh_example_map.py
+
+(4) EU_ref_regression.html
+
+-- interactive example output from v1.0 of elections_ML.py
