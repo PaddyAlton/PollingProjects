@@ -13,21 +13,31 @@ import pandas as pd
 ### READ IN DATAFRAMES
 
 def dt_convert(item):
-	
-	""" 
-	Custom converter function for reading in the dates of polls.
-	(the problem is, polls with a single date marker get correctly read in as datetimes, whereas those conducted 
-	over a number of days do not. So: convert them all to strings, god will recognise his own...)
-	"""
-	
-	splitup = str(item).split('-')
-	
-	if len(splitup)==2: return splitup[-1]
-	
-	else: return str(item).split(' ')[0]
+    
+    """ 
+    Custom converter function for reading in the dates of polls.
+    
+    (the problem is, polls with a single date marker get correctly 
+    read in as datetimes, whereas those conducted over a number of 
+    days do not. 
+    So: convert them all to strings, god will recognise his own...)
+    
+    """
+    
+    splitup = str(item).split('-')
+    
+    if len(splitup)==2: return splitup[-1]
+    
+    else: return str(item).split(' ')[0]
+
+home_dir = "C://Users/Laptop/Documents/GitHub/polling_projects/"
 
 # reads in all four Excel sheets as a python dictionary
-test = pd.read_excel("C://Users/Laptop/Documents/GitHub/polling_projects/UK_polling_2005_to_present.xlsx", sheetname=None, converters={'date conducted':dt_convert}) 
+test = pd.read_excel(
+    home_dir + "UK_polling_2005_to_present.xlsx",
+    sheet_name = None,
+    converters={'date conducted':dt_convert}
+)
 
 # extract each DataFrame and name it appropriately:
 polls2010 = test['For 2010'] # polling from 2005 - 2010
@@ -39,53 +49,72 @@ polls2022 = test['For 2022'] # polling from 2017 -->
 ### DEFINE SOME NEW FUNCTIONS FOR DATAFRAME JIGGERY-POKERY
 
 def dt_combine(df):
-	
-	"""
-	Input: a DataFrame
-	Returns: a list of dates in a common format (dd mm yyyy)
-	Creates a common format for the dates, pulling in the 'year conducted' column and extracting the day and month from
-	the 'date conducted' column.
-	"""
-	
-	year = list(df['year conducted'])
-	date = list(df['date conducted'])
-	
-	for ii, item in enumerate(date):
-		if len(item.split('-'))!=3: date[ii] = item+' '+str(year[ii])
-		else: date[ii] = item.split('-')[2]+' '+item.split('-')[1]+' '+str(year[ii])
-	return date
+    
+    """
+    Input: a DataFrame
+    Returns: a list of dates in a common format (dd mm yyyy)
+    
+    Creates a common format for the dates, pulling in the 
+    'year conducted' column and extracting the day and month from
+    the 'date conducted' column.
+    """
+    
+    year = list(df['year conducted'])
+    date = list(df['date conducted'])
+    
+    for ii, item in enumerate(date):
+        if len(item.split('-'))!=3:
+            date[ii] = item+' '+str(year[ii])
+        else:
+            date[ii] = '{} {} {}'.format(
+                item.split('-')[2],
+                item.split('-')[1],
+                year[ii]
+            )
+        
+    return date
 
 def dt_fix(df):
-	
-	"""
-	Input: a DataFrame
-	Returns: a new DataFrame with a datetime-index 
-	Passes the input to dt_combine(), converts the returned list to datetime format, stripping out any leading whitespace,
-	and uses as the DataFrame index. Then throws out the original year/date conducted columns.
-	(oh, and for good measure it ensures all sample sizes are in numeric format)
-	"""
-	
-	df['conducted'] = dt_combine(df)
-	df.conducted = df.conducted.str.strip()
-	df.conducted = [pd.to_datetime(entry,dayfirst=True,errors='coerce') for entry in df.conducted]
-	
-	df['Sample size'] = pd.to_numeric(df['Sample size'],errors='coerce') # 
-	
-	return df[df.columns[2:]].set_index('conducted')
+    
+    """
+    Input: a DataFrame
+    Returns: a new DataFrame with a datetime-index
+    
+    Passes the input to dt_combine(), converts the returned list to 
+    datetime format, stripping out any leading whitespace, and uses 
+    as the DataFrame index. Then throws out the original year/date 
+    conducted columns.
+    
+    (oh, and for good measure it ensures all sample sizes are in 
+    numeric format)
+    """
+    
+    df['conducted'] = dt_combine(df)
+    
+    df.conducted = df.conducted.str.strip()
+    
+    df.conducted = [
+        pd.to_datetime(entry, dayfirst=True, errors='coerce') 
+        for entry in df.conducted
+    ]
+    
+    df['Sample size'] = pd.to_numeric(df['Sample size'], errors='coerce')
+    
+    return df[df.columns[2:]].set_index('conducted')
 
 month_dict1 = {'Jan':0,'Feb':31,'Mar':59,'Apr':90,'May':120,'June':151,'Jun':151,'Jul':181,'Aug':212,'Sep':243,'Oct':273,'Nov':304,'Dec':334}
 month_dict2 = {1:0,2:31,3:59,4:90,5:120,6:151,7:181,8:212,9:243,10:273,11:304,12:334} # define this for calculating fraction of a year from month/day combos
 
 def frac_year(df):
-	
-	"""
-	Input: a DataFrame with a datetime index
-	Returns: a NumPy array with the dates converted to fractional A.D. years.
-	"""
-	
-	conducted = df.index
-	days = np.array([item.year-2005 for item in conducted])*365.25 + np.array([month_dict2[item.month] for item in conducted]) + np.array([item.day for item in conducted])
-	return 2005+days/365.25
+    
+    """
+    Input: a DataFrame with a datetime index
+    Returns: a NumPy array with the dates converted to fractional A.D. years.
+    """
+    
+    conducted = df.index
+    days = np.array([item.year-2005 for item in conducted])*365.25 + np.array([month_dict2[item.month] for item in conducted]) + np.array([item.day for item in conducted])
+    return 2005+days/365.25
 # plot scatter points on top (hence separate loop)
 
 ### APPLY THOSE FUNCTIONS TO THE DATA
@@ -132,27 +161,27 @@ f.set_tight_layout(True)
 #### PLOTTING: LOOP OVER PARTIES
 
 def running_average(time,result,window=14/365.25):
-	""" This function creates a running average based on the time-series (time [frac_year], result) with window [default = 1 week]"""
-	output = np.empty_like(time)
-	for tt in range(time.size): output[tt] = np.mean(result[np.abs(time-time[tt])<=window])
-	return output
+    """ This function creates a running average based on the time-series (time [frac_year], result) with window [default = 1 week]"""
+    output = np.empty_like(time)
+    for tt in range(time.size): output[tt] = np.mean(result[np.abs(time-time[tt])<=window])
+    return output
 
 def formal_error(df, party):
-	"""
-	Inputs: polls DataFrame, chosen party
-	Returns: formal statistical (1-sigma) uncertainty based on sample size
-	"""
-	ydat = df[party].values/100.
-	return 100.*np.sqrt(ydat*(1.-ydat)/df["Sample size"])
+    """
+    Inputs: polls DataFrame, chosen party
+    Returns: formal statistical (1-sigma) uncertainty based on sample size
+    """
+    ydat = df[party].values/100.
+    return 100.*np.sqrt(ydat*(1.-ydat)/df["Sample size"])
 
 for part in parties: # loop over list of parties
-	xdat = polls.frac_year
-	rav = running_average(polls.frac_year, polls[part])
-	conf = 100.*np.sqrt((rav/100.)*(1-rav/100.)/2000.) # calculate 1-sigma confidence interval assuming sample size ~ 2000
-	
-	ax.plot(xdat, rav, '-', color=c_dict[part], linewidth=3, label=part) # plot running average for current party
-	ax.fill_between(xdat,rav-conf,rav+conf, color=c_dict[part], alpha=0.3) # plot 1-sigma confidence interval
-	ax.fill_between(xdat,rav-conf-conf,rav+conf+conf, color=c_dict[part], alpha=0.3) # plot 2-sigma confidence interval
+    xdat = polls.frac_year
+    rav = running_average(polls.frac_year, polls[part])
+    conf = 100.*np.sqrt((rav/100.)*(1-rav/100.)/2000.) # calculate 1-sigma confidence interval assuming sample size ~ 2000
+    
+    ax.plot(xdat, rav, '-', color=c_dict[part], linewidth=3, label=part) # plot running average for current party
+    ax.fill_between(xdat,rav-conf,rav+conf, color=c_dict[part], alpha=0.3) # plot 1-sigma confidence interval
+    ax.fill_between(xdat,rav-conf-conf,rav+conf+conf, color=c_dict[part], alpha=0.3) # plot 2-sigma confidence interval
 
 # plot scatter points on top (hence separate loop)
 #for part in parties: ax.scatter(polls.frac_year, polls[part].values, color=c_dict[part], alpha=0.3)
@@ -227,5 +256,5 @@ for pseud in pseudonym_list: polls.pollster.loc[finders[pseud]] = pseud # replac
 mask = polls.pollster == 'General Election'
 
 for part in parties: 
-	ax.plot(polls.frac_year.loc[mask], polls[part].loc[mask].values, 'ks', markersize=16)
-	ax.errorbar(polls.frac_year.loc[mask], polls[part].loc[mask].values, yerr=formal_error(polls.loc[mask], part), fmt='s', color=c_dict[part], markersize=12)
+    ax.plot(polls.frac_year.loc[mask], polls[part].loc[mask].values, 'ks', markersize=16)
+    ax.errorbar(polls.frac_year.loc[mask], polls[part].loc[mask].values, yerr=formal_error(polls.loc[mask], part), fmt='s', color=c_dict[part], markersize=12)
