@@ -1,5 +1,5 @@
- from __future__ import unicode_literals
-
+import numpy as np
+import pandas as pd
 import requests
 
 from contextlib import closing
@@ -48,6 +48,13 @@ def get_html_content(url):
 
     return None
 
+def expected_table_years():
+    """ calculates number of tables (1 per year) to expect and returns year-list """
+    last_election_in = 2017
+    current_year = pd.datetime.today().year
+    return current_year - np.arange(current_year - last_election_in + 1)
+
+
 if __name__ == "__main__":
 
     raw_html = get_html_content(
@@ -57,10 +64,26 @@ if __name__ == "__main__":
 
     processed_html = BeautifulSoup(raw_html, 'html.parser')
 
-    table = pd.read_html(processed_html.encode('utf8'))
+    all_tables = pd.read_html(processed_html.encode('utf8'), header=0)
 
-    trs = processed_html.select('table')[0].tbody.find_all('tr')
+    expected_tables = expected_table_years()
 
-    raw_data = pd.DataFrame([
-        [x.contents[0] for x in tr.find_all('td')] for tr in trs
-    ])
+    data_tables = []
+
+    for year, table in zip(expected_tables, all_tables[:len(expected_tables)]):
+
+        null_check_cols = table.columns[4:].values
+
+        dropnull_table = table.copy().dropna(how='all', subset=null_check_cols)
+
+        dc_with_year = (
+            dropnull_table
+                .loc[:, 'Date(s)conducted']
+                .map(lambda s: s + ' ' + str(year))
+        )
+
+        dropnull_table['Date(s)conducted'] = dc_with_year.values
+
+        data_tables.append(dropnull_table.rename({'Date(s)conducted': 'date'}, axis=1))
+
+    all_polls = pd.concat(data_tables)
