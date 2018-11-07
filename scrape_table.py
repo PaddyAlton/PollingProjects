@@ -48,6 +48,24 @@ def get_html_content(url):
 
     return None
 
+def unwrap_merged_cells(raw_row):
+
+    """
+    unwrap_merged_cells
+
+    """
+
+    cells = raw_row.find_all(["td", "th"])
+
+    colspans = [int(cell.get("colspan", 1)) - 1 for cell in cells]
+
+    unwrapped_row = np.hstack([
+        np.append([cell.text.strip('\n')], [np.nan for x in range(span)])
+        for cell, span in zip(cells, colspans)
+    ])
+
+    return unwrapped_row
+
 def html_to_dataframe(raw_table):
 
     """
@@ -65,14 +83,7 @@ def html_to_dataframe(raw_table):
 
     rows = raw_table.find_all("tr")
 
-    raw_rows = []
-
-    for row in rows:
-        raw_rows.append(row.find_all(["td", "th"]))
-
-    max_cols = np.max([len(row) for row in raw_rows])
-
-    # use cell.get("colspan", 1)
+    raw_rows = [unwrap_merged_cells(row) for row in rows]
 
 
 def read_html(processed_html):
