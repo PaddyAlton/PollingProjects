@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import requests
+import janitor
 
 from contextlib import closing
 from bs4 import BeautifulSoup
@@ -37,15 +38,13 @@ def get_html_content(url):
         url - URL of the page from which to scrape content
 
     OUTPUTS:
-        raw_html
+        raw_html - HTML obtained via a GET request from the url
 
     """
 
     with closing(requests.get(url, stream=True)) as response:
-
         if is_good_response(response):
             return response.content
-
     return None
 
 def unwrap_merged_cells(raw_row):
@@ -64,7 +63,13 @@ def unwrap_merged_cells(raw_row):
         for cell, span in zip(cells, colspans)
     ])
 
-    return unwrapped_row
+    # clearly mark missing entries
+    cleaned_row = [
+        cell if cell not in ["", "N/A", "nan"]
+        else np.nan for cell in unwrapped_row
+    ]
+
+    return cleaned_row
 
 def html_to_dataframe(raw_table):
 
@@ -75,9 +80,7 @@ def html_to_dataframe(raw_table):
         raw_table - HTML table as parsed by BeautifulSoup
 
     OUTPUTS:
-        dataframe
-
-    WORK IN PROGRESS
+        table - the same data represented as a pandas DataFrame
 
     """
 
@@ -85,6 +88,11 @@ def html_to_dataframe(raw_table):
 
     raw_rows = [unwrap_merged_cells(row) for row in rows]
 
+    column_headers = raw_rows[0]
+
+    table = pd.DataFrame(raw_rows[1:], columns=column_headers).dropna(how="all")
+
+    return table
 
 def read_html(processed_html):
 
@@ -95,18 +103,22 @@ def read_html(processed_html):
     merged cells
 
     INPUTS:
-        processed_html
+        processed_html - HTML as-parsed by BeautifulSoup
 
     OUTPUTS:
-        all_tables - list of DataFrames parsed out from the HTML
+        tables - list of DataFrames extracted from the HTML
 
     """
 
     all_tables_raw = processed_html.find_all("table")
 
-    all_tables = [html_to_dataframe(raw_table) for raw_table in all_tables_raw]
+    data_tables = [
+        table for table in all_tables_raw if "wikitable" in table.get("class")
+    ]
 
-    return all_tables
+    tables = [html_to_dataframe(raw_table) for raw_table in data_tables]
+
+    return tables
 
 def expected_table_years():
     """ calculates number of tables (1 per year) to expect and returns year-list """
@@ -155,11 +167,50 @@ def unify_tables(all_tables):
         dropnull_table['Date(s)conducted'] = dc_with_year.values
 
         # append this modified table, renaming column to the simpler 'date':
-        data_tables.append(dropnull_table.rename({'Date(s)conducted': 'date'}, axis=1))
+        data_tables.append(
+            dropnull_table.rename_column("Date(s)conducted", "date")
+        )
 
-    all_polls = pd.concat(data_tables)
+    # join tables together, clean column names --> lower-case, spaces-to-underscores
+    all_polls = pd.concat(data_tables).clean_names()
 
     return all_polls
+
+def render_numeric(dataframe):
+
+    """
+    render_numeric
+
+    The data is parsed as character strings, but of course polling data
+    is numeric. Here we identify the numeric columns and convert types
+
+    INPUTS:
+        dataframe - pandas DataFrame
+
+    OUTPUTS:
+        modified_dataframe - copy, data-types coerced where appropriate
+
+    """
+
+    modified_dataframe = dataframe.copy()
+
+    modified_dataframe.loc[:, "sample_size"] = dataframe.sample_size.map(
+        lambda s: int(s.replace(",", ""))
+    )
+
+    for col in dataframe.columns[4:]:
+
+        numeric_series = (
+            dataframe
+                .loc[:, col] # extract series, convert percentage to float
+                .map(lambda s: s.replace("%", "") if isinstance(s, str) else np.nan)
+                .map(lambda s: s.replace("Tie", "0") if isinstance(s, str) else np.nan)
+                .map(lambda s: float(s))
+        )
+
+        modified_dataframe.loc[:, col] = numeric_series
+
+    return modified_dataframe
 
 def parse_polling_dates(dataframe):
 
@@ -220,7 +271,7 @@ def parse_polling_org(dataframe):
 
     """
 
-    polling_org = dataframe.loc[:, "Polling organisation/client"]
+    polling_org = dataframe.loc[:, "polling_organisation_client"]
 
     attempted_split = polling_org.str.split('/')
 
@@ -228,7 +279,7 @@ def parse_polling_org(dataframe):
 
     client = attempted_split.map(lambda L: L[1] if len(L) == 2 else np.nan)
 
-    modified_dataframe = dataframe.drop(["Polling organisation/client"], axis=1)
+    modified_dataframe = dataframe.remove_columns(["polling_organisation_client"])
 
     col_order = list(modified_dataframe.copy().columns.values)
     col_order.insert(1, 'polling_client')
@@ -238,6 +289,124 @@ def parse_polling_org(dataframe):
     modified_dataframe.loc[:, 'polling_client'] = client
 
     return modified_dataframe.loc[:, col_order]
+
+def disaggregate_nationalist_data(dataframe):
+
+    """
+    disaggregate_nationalist_data
+
+    YouGov (and sometimes Ipsos MORI) group the SNP and Plaid Cymru
+    together, which is not something all other pollsters do. This
+    function imputes the disaggregated values for these parties using the
+    average ratio of their vote shares
+
+    """
+
+    modified_dataframe = dataframe.copy()
+
+    # check which rows have complete data
+    is_complete = dataframe.isna().apply(np.any, axis=1).map(np.logical_not)
+
+    nationalists_complete = dataframe.loc[is_complete, ["plaid", "snp"]]
+
+    ## YouGov data
+
+    # impute SNP & Plaid Cymru values in YouGov data (combined share stored under snp)
+    is_yg = dataframe.polling_org == "YouGov"
+
+    ratio = ( # get the average ratio between the two nationalist parties
+        nationalists_complete
+            .plaid.div(nationalists_complete.snp).mean()
+    )
+
+    modified_dataframe.loc[is_yg, "snp"] = (
+        dataframe.loc[is_yg, "snp"].mul(1 - ratio).map(np.round)
+    )
+
+    modified_dataframe.loc[is_yg, "plaid"] = (
+        dataframe.loc[is_yg, "snp"].mul(ratio).map(np.round)
+    )
+
+    ## Ipsos MORI data - changes methodology, sometimes similar to YouGov
+
+    is_im = dataframe.polling_org == "Ipsos MORI"
+
+    needs_disaggregation = is_im & dataframe.plaid.isna()
+
+    modified_dataframe.loc[needs_disaggregation, "snp"] = (
+        dataframe.loc[needs_disaggregation, "snp"].mul(1 - ratio).map(np.round)
+    )
+
+    modified_dataframe.loc[needs_disaggregation, "plaid"] = (
+        dataframe.loc[needs_disaggregation, "snp"].mul(ratio).map(np.round)
+    )
+
+    return modified_dataframe
+
+def impute_small_parties(dataframe):
+
+    """
+    impute_small_parties
+
+    """
+
+    modified_dataframe = dataframe.copy()
+
+    # update which rows have complete data
+    is_complete = (
+        dataframe
+            .iloc[:, 5:]
+            .notna()
+            .apply(np.all, axis=1)
+    )
+
+    complete_data = dataframe.loc[is_complete]
+
+    # let's work on a common pattern
+    no_snp = dataframe.snp.isna()
+    no_plaid = dataframe.plaid.isna()
+    no_green = dataframe.green.isna()
+
+    no_small_parties = no_snp & no_plaid & no_green
+
+    small_parties_total = (
+        complete_data.snp
+        + complete_data.plaid
+        + complete_data.green
+        + complete_data.others
+    )
+
+    for party in ["snp", "plaid", "green", "others"]:
+        modified_dataframe.loc[no_small_parties, party] = np.round(
+            complete_data[party].mean() / small_parties_total.mean()
+        )
+
+    return modified_dataframe
+
+def backfill_polls(dataframe):
+
+    """
+    backfill_polls
+
+    This method uses the standard fillna method "bfill", but then
+    compares the original values to the imputed ones and sums these
+    across all parties. This tells us the total imputed to each party and
+    we remove this from the 'others' column
+
+    """
+
+    modified_dataframe = dataframe.copy()
+
+    numeric_subset = dataframe.iloc[:, 5:] # numeric columns only
+
+    numeric_subset_corr = numeric_subset.fillna(method="bfill")
+
+    imputed_vals = numeric_subset_corr.sub(numeric_subset.fillna(0)).apply(np.sum,axis=1)
+
+    modified_dataframe.iloc[:, 5:] = numeric_subset_corr
+    modified_dataframe.loc[:, "others"] = dataframe.others.sub(imputed_vals)
+
+    return modified_dataframe
 
 def parse_minor_parties(dataframe):
 
@@ -255,12 +424,13 @@ def parse_minor_parties(dataframe):
         modified_dataframe - input with imputed values entered for minor
                              party vote shares
 
-
-    WORK IN PROGRESS
-
     """
 
-    pass
+    modified_dataframe = disaggregate_nationalist_data(dataframe)
+    modified_dataframe = impute_small_parties(modified_dataframe)
+    modified_dataframe = backfill_polls(modified_dataframe)
+
+    return modified_dataframe
 
 def download_and_transform():
 
@@ -289,11 +459,16 @@ def download_and_transform():
 
     processed_html = BeautifulSoup(raw_html, 'html.parser')
 
-    all_tables = pd.read_html(processed_html.encode('utf8'), header=0)
+    all_tables = read_html(processed_html)
 
-    all_polls = unify_tables(all_tables)
-    all_polls = parse_polling_dates(all_polls) # modify date column in place
-    all_polls = parse_polling_org(all_polls) # split polling organisation/client out
+    all_polls = (
+        unify_tables(all_tables)
+            .pipe(render_numeric)
+            .pipe(parse_polling_dates)
+            .pipe(parse_polling_org)
+            .pipe(parse_minor_parties)
+            .set_index("date")
+    )
 
     return all_polls
 
