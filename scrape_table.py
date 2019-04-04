@@ -203,9 +203,10 @@ def render_numeric(dataframe):
         numeric_series = (
             dataframe
                 .loc[:, col] # extract series, convert percentage to float
-                .map(lambda s: s.replace("%", "") if isinstance(s, str) else np.nan)
-                .map(lambda s: s.replace("Tie", "0") if isinstance(s, str) else np.nan)
-                .map(lambda s: float(s))
+                .map(lambda s: s.replace("%", "") if isinstance(s, str) else "")
+                .str.replace("Tie", "0")
+                .str.replace("\[.\]", "")
+                .map(lambda s: float(s) if s != "" else np.nan)
         )
 
         modified_dataframe.loc[:, col] = numeric_series
