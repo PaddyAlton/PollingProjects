@@ -46,6 +46,24 @@ def get_sampling_uncertainty(df, named_column, sample_size_column):
         return uncertainty
     return uncertainty * 100
 
+def colour_defs():
+    """
+    colour_defs
+
+    Returns a lookup dictionary, hex-codes for each party
+    """
+    return {
+        "con": "#0087DC",
+        "lab": "#DC241F",
+        "lib_dem": "#FAA61A",
+        "snp": "#FEF987",
+        "plaid": "#008142",
+        "ukip": "#70147A",
+        "green": "#6AB023",
+        "change_uk": "#222221",
+        "brexit": "#12B6CF",
+    }
+
 def get_party_list():
     return [
         "con", "lab", "lib_dem", "ukip", "green", "snp", "plaid"
@@ -56,7 +74,7 @@ def get_palette():
         "b", "r", "orange", "purple", "g", "y", "darkgreen"
     ]
 
-def add_trendline(data, plot_clr, ax=None, window="14d"):
+def add_trendline(data, uncertainty, plot_clr, ax=None, window="14d", **kwargs):
 
     """
     add_trendline
@@ -81,11 +99,17 @@ def add_trendline(data, plot_clr, ax=None, window="14d"):
 
     ax.plot(trendline, linewidth=3, alpha=0.7, c=plot_clr)
 
-    return ax
+    error = uncertainty.resample("d").mean().fillna(method="pad")
 
-def format_plot(ax):
-    """ format_plot controls plot formatting when the data is displayed """
-    ax.set_ylim(0, 55)
+    ax.fill_between(
+        trendline.index,
+        trendline-error,
+        trendline+error,
+        color=plot_clr,
+        alpha=0.5,
+        **kwargs,
+    )
+
     return ax
 
 def plot_data(polling_data):
@@ -93,8 +117,10 @@ def plot_data(polling_data):
     f, ax = plt.subplots()
     f.set_tight_layout(True)
 
-    parties = get_party_list()
-    palette = get_palette()
+    party_colours = colour_defs()
+
+    parties = list(party_colours.keys())
+    palette = list(party_colours.values())
 
     polling_data.plot(
         y=parties,
@@ -103,12 +129,24 @@ def plot_data(polling_data):
         color=palette,
         alpha=0.7,
         legend=False,
+        rot=0,
     )
 
     for party, clr in zip(parties, palette):
-        ax = add_trendline(polling_data[party], clr, ax=ax)
+        data = polling_data[party]
+        uncertainty = polling_data.get_sampling_uncertainty(party, "sample_size").mul(2.0)
+        ax = add_trendline(data, uncertainty, clr, ax=ax, label=party)
 
-    ax = format_plot(ax)
+    # format the plot
+
+    ax.legend(ncol=len(parties), fontsize="xx-large")
+
+    ax.set_xlabel("Date", fontsize="x-large")
+    ax.set_ylabel("%", fontsize="x-large")
+
+    ax.set_ylim(0, 55)
+
+    ax.set_tickparams(fontsize="large")
 
     return ax
 

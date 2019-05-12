@@ -145,9 +145,7 @@ def unify_tables(all_tables):
     """
 
     # no input needed to get expected table years, works it out from current date:
-    expected_tables = expected_table_years()
-
-    year_table_pairs = zip(expected_tables, all_tables[:len(expected_tables)])
+    year_table_pairs = zip(expected_table_years(), [all_tables[i] for i in [0, 2, 3]])
 
     data_tables = []
 
@@ -172,7 +170,7 @@ def unify_tables(all_tables):
         )
 
     # join tables together, clean column names --> lower-case, spaces-to-underscores
-    all_polls = pd.concat(data_tables).clean_names()
+    all_polls = pd.concat(data_tables, sort=False).clean_names()
 
     return all_polls
 
@@ -194,8 +192,10 @@ def render_numeric(dataframe):
 
     modified_dataframe = dataframe.copy()
 
-    modified_dataframe.loc[:, "sample_size"] = dataframe.sample_size.map(
-        lambda s: int(s.replace(",", ""))
+    modified_dataframe.loc[:, "sample_size"] = (
+        dataframe
+            .sample_size
+            .map(lambda s: int(s.replace(",", "")) if isinstance(s, str) else s)
     )
 
     for col in dataframe.columns[4:]:
