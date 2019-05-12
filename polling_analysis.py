@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pandas_flavor
 import matplotlib.pyplot as plt; plt.ion()
+import matplotlib.patches as mpatches
 import seaborn as sns; sns.set_style("white"); sns.set_color_codes()
 
 from scrape_table import download_and_transform
@@ -64,6 +65,25 @@ def colour_defs():
         "brexit": "#12B6CF",
     }
 
+def clean_party_names():
+    """
+    clean_party_names
+
+    Returns a dictionary lookup from shorthand names to display names
+    for parties
+    """
+    return {
+        "con": "Con",
+        "lab": "Lab",
+        "lib_dem": "Lib Dem",
+        "snp": "SNP",
+        "plaid": "Plaid Cymru",
+        "ukip": "UKIP",
+        "green": "Green",
+        "change_uk": "ChUK",
+        "brexit": "Brexit",
+    }
+
 def get_party_list():
     return [
         "con", "lab", "lib_dem", "ukip", "green", "snp", "plaid"
@@ -74,7 +94,7 @@ def get_palette():
         "b", "r", "orange", "purple", "g", "y", "darkgreen"
     ]
 
-def add_trendline(data, uncertainty, plot_clr, ax=None, window="14d", **kwargs):
+def add_trendline(data, uncertainty, plot_clr, party, ax=None, window="14d"):
 
     """
     add_trendline
@@ -101,21 +121,20 @@ def add_trendline(data, uncertainty, plot_clr, ax=None, window="14d", **kwargs):
 
     error = uncertainty.resample("d").mean().fillna(method="pad")
 
-    ax.fill_between(
-        trendline.index,
-        trendline-error,
-        trendline+error,
-        color=plot_clr,
-        alpha=0.5,
-        **kwargs,
-    )
+#    ax.fill_between(
+#        trendline.index,
+#        trendline-error,
+#        trendline+error,
+#        color=plot_clr,
+#        alpha=0.5,
+#    )
 
     return ax
 
 def plot_data(polling_data):
 
     f, ax = plt.subplots()
-    f.set_tight_layout(True)
+    #f.set_tight_layout(True)
 
     party_colours = colour_defs()
 
@@ -130,23 +149,32 @@ def plot_data(polling_data):
         alpha=0.7,
         legend=False,
         rot=0,
+        label=None,
     )
 
     for party, clr in zip(parties, palette):
         data = polling_data[party]
         uncertainty = polling_data.get_sampling_uncertainty(party, "sample_size").mul(2.0)
-        ax = add_trendline(data, uncertainty, clr, ax=ax, label=party)
+        ax = add_trendline(data, uncertainty, clr, party, ax=ax)
 
     # format the plot
+    name_lookup = clean_party_names()
 
-    ax.legend(ncol=len(parties), fontsize="xx-large")
+    ax.legend(
+        handles = [
+            mpatches.Patch(color=v, label=name_lookup[k])
+            for k, v in party_colours.items()
+        ],
+        fontsize="xx-large",
+        ncol = 3,
+    )
 
     ax.set_xlabel("Date", fontsize="x-large")
     ax.set_ylabel("%", fontsize="x-large")
 
     ax.set_ylim(0, 55)
 
-    ax.set_tickparams(fontsize="large")
+    ax.tick_params(labelsize="large")
 
     return ax
 
@@ -155,3 +183,5 @@ if __name__ == "__main__":
     polling_data = download_and_transform()
 
     ax = plot_data(polling_data)
+
+    ax.set_xlim(pd.datetime(2019,1,1), pd.datetime(2019,5,23))
