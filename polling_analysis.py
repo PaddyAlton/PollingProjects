@@ -131,10 +131,7 @@ def add_trendline(data, uncertainty, plot_clr, party, ax=None, window="14d"):
 
     return ax
 
-def plot_data(polling_data):
-
-    f, ax = plt.subplots()
-    #f.set_tight_layout(True)
+def poll_plotter(polling_data, ax):
 
     party_colours = colour_defs()
 
@@ -176,6 +173,13 @@ def plot_data(polling_data):
 
     ax.tick_params(labelsize="large")
 
+    return ax
+
+def plot_data(polling_data):
+
+    f, ax = plt.subplots()
+    #f.set_tight_layout(True)
+    poll_plotter(polling_data, ax)
     return ax
 
 if __name__ == "__main__":

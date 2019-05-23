@@ -94,6 +94,25 @@ def html_to_dataframe(raw_table):
 
     return table
 
+def is_wikitable(table):
+    """
+    is_wikitable
+
+    Checks whether an HTML table has 'wikitable' in its classes
+
+    INPUTS:
+        table - HTML table
+    
+    OUTPUTS:
+        <boolean>
+
+    """
+    if table.get("class") is None:
+        return False
+    if "wikitable" in table.get("class"):
+        return True
+    return False
+
 def read_html(processed_html):
 
     """
@@ -112,9 +131,7 @@ def read_html(processed_html):
 
     all_tables_raw = processed_html.find_all("table")
 
-    data_tables = [
-        table for table in all_tables_raw if "wikitable" in table.get("class")
-    ]
+    data_tables = [table for table in all_tables_raw if is_wikitable(table)]
 
     tables = [html_to_dataframe(raw_table) for raw_table in data_tables]
 
