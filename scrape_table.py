@@ -102,7 +102,7 @@ def is_wikitable(table):
 
     INPUTS:
         table - HTML table
-    
+
     OUTPUTS:
         <boolean>
 
@@ -209,9 +209,9 @@ def render_numeric(dataframe):
 
     modified_dataframe = dataframe.copy()
 
-    modified_dataframe.loc[:, "sample_size"] = (
+    modified_dataframe.loc[:, "samplesize"] = (
         dataframe
-            .sample_size
+            .samplesize
             .map(lambda s: int(s.replace(",", "")) if isinstance(s, str) else s)
     )
 

@@ -151,7 +151,7 @@ def poll_plotter(polling_data, ax):
 
     for party, clr in zip(parties, palette):
         data = polling_data[party]
-        uncertainty = polling_data.get_sampling_uncertainty(party, "sample_size").mul(2.0)
+        uncertainty = polling_data.get_sampling_uncertainty(party, "samplesize").mul(2.0)
         ax = add_trendline(data, uncertainty, clr, party, ax=ax)
 
     # format the plot
