@@ -162,7 +162,9 @@ def unify_tables(all_tables):
     """
 
     # no input needed to get expected table years, works it out from current date:
-    year_table_pairs = zip(expected_table_years(), [all_tables[i] for i in [0, 2, 3]])
+    table_years = expected_table_years()
+
+    year_table_pairs = zip(table_years, [all_tables[i] for i in range(len(table_years))])
 
     data_tables = []
 
@@ -289,7 +291,7 @@ def parse_polling_org(dataframe):
 
     """
 
-    polling_org = dataframe.loc[:, "polling_organisation_client"]
+    polling_org = dataframe.loc[:, "pollster_client_s"]
 
     attempted_split = polling_org.str.split('/')
 
@@ -297,7 +299,7 @@ def parse_polling_org(dataframe):
 
     client = attempted_split.map(lambda L: L[1] if len(L) == 2 else np.nan)
 
-    modified_dataframe = dataframe.remove_columns(["polling_organisation_client"])
+    modified_dataframe = dataframe.remove_columns(["pollster_client_s"])
 
     col_order = list(modified_dataframe.copy().columns.values)
     col_order.insert(1, 'polling_client')
