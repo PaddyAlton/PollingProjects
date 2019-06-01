@@ -2,12 +2,17 @@
 # script for plotting and analysing polling data scraped from Wikipedia
 
 import numpy as np
+
 import pandas as pd
 import pandas_flavor
+
 import matplotlib.pyplot as plt; plt.ion()
 import matplotlib.patches as mpatches
 import matplotlib.dates as mdates
+
 import seaborn as sns; sns.set_style("white"); sns.set_color_codes()
+
+import statsmodels.api as smod
 
 from scrape_table import download_and_transform
 
@@ -43,8 +48,11 @@ if not hasattr(pd.DataFrame, "get_sampling_uncertainty"):
             data_series
                 .mul(data_series.sub(1.0).mul(-1))
                 .div(sample_size)
+                .add(0.005**2) # add in uncertainty due to rounding of figures
                 .map(np.sqrt)
         )
+
+        uncertainty.fillna(uncertainty.mean(), inplace=True)
 
         if not using_percentages:
             return uncertainty
@@ -113,32 +121,34 @@ def centered_ticklabels(ax):
 
     return ax
 
-def add_trendline(data, uncertainty, plot_clr, party, ax=None, window="14d"):
+def add_trendline(data, uncertainty, plot_clr, ax=None):
 
     """
     add_trendline
 
     This function converts a Series extracted from a DataFrame into
-    a rolling average (default window = 14 days) over the Series. This is
-    then plotted onto a supplied plotting axis (or a fresh one if not
-    supplied)
+    a rolling average using LOWESS (locally weighted scatterplot
+    smoothing). The procedure is a nine-poll smoothing. The function
+    adds the line to a plot and also adds the polling uncertainty
+    to it as a shaded region.
 
     """
 
-    trendline = (
-        data.sort_index()
-            .rolling(window).mean()
-            .resample("d").mean()
-            .interpolate("time")
-    )
+    n_vals = data.dropna().size
 
+    smoothed_data = smod.nonparametric.lowess(data.values, data.index, frac=9/n_vals)
+
+    trendline = pd.Series(
+        smoothed_data[:, 1],
+        index = pd.to_datetime(smoothed_data[:, 0]),
+    )
 
     if ax is None:
         f, ax = plt.subplots()
 
     ax.plot(trendline, linewidth=3, alpha=0.7, c=plot_clr)
 
-    error = uncertainty.resample("d").mean().fillna(method="pad")
+    error = np.interp(trendline.index, uncertainty.index, uncertainty.values)
 
     ax.fill_between(
         trendline.index,
@@ -171,7 +181,7 @@ def poll_plotter(polling_data, ax):
     for party, clr in zip(parties, palette):
         data = polling_data[party]
         uncertainty = polling_data.get_sampling_uncertainty(party, "samplesize").mul(2.0)
-        ax = add_trendline(data, uncertainty, clr, party, ax=ax)
+        ax = add_trendline(data, uncertainty, clr, ax=ax)
 
     # format the plot
     name_lookup = clean_party_names()
@@ -185,10 +195,13 @@ def poll_plotter(polling_data, ax):
         ncol = 3,
     )
 
+    ax.set_title("Opinion polling for the next UK general election", fontsize="xx-large")
     ax.set_xlabel("Date", fontsize="x-large")
     ax.set_ylabel("%", fontsize="x-large")
 
     ax.set_ylim(0, 55)
+
+    # tick labelling:
 
     ax.tick_params(labelsize="large")
 
@@ -209,16 +222,12 @@ def poll_plotter(polling_data, ax):
 
     return ax
 
-def plot_data(polling_data):
-
-    f, ax = plt.subplots()
-    ax = poll_plotter(polling_data, ax)
-    return ax
-
 if __name__ == "__main__":
 
     polling_data = download_and_transform().sort_index()
 
-    ax = plot_data(polling_data)
+    f, ax = plt.subplots()
 
-    ax.set_xlim(pd.datetime(2019,1,1), pd.datetime(2019,5,23))
+    ax = poll_plotter(polling_data, ax)
+
+    ax.set_xlim(pd.datetime(2019,3,1), pd.datetime.today())

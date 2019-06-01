@@ -117,7 +117,7 @@ def render_numeric(dataframe):
                 .str.replace("Tie", "0")
                 .str.replace("\[.\]", "")
                 .str.replace("<1", "0") # <1% usually means they found 0 in-sample but are hedging
-                .map(lambda s: float(s) if s != "" else np.nan)
+                .map(lambda s: float(s) if s not in ["", "TBC"] else np.nan)
         )
 
         modified_dataframe.loc[:, col] = numeric_series
