@@ -23,7 +23,7 @@ def get_html_tables(url):
         "attrs": {"class": "wikitable"},
         "header": 0, # use row 0 as header
         "skiprows": [1], # skip row 1 (0-based, i.e. the second row)
-        "na_values": ["–"],
+        "na_values": ["–", "TBC"],
     }
 
     wikitables = pd.read_html(url, **kwargs)
