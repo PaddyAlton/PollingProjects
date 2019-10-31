@@ -10,40 +10,48 @@ This is some of my code for plotting/analysing the results of UK political polls
 
 -- a python script for visualising how the polls have changed over the last decade +.
 
+(3) scrape_table.py
+
+-- code for scraping the polling data from the relevant Wikipedia page (opinion polling for the next UK general election)
+
+(4) polling_analysis.py
+
+-- a script that uses scrape_table.py to scrape the latest polls and plot them in a nicely formatted way with uncertainties and a LOESS trend line.
+
 --------------------
 
-(3) Scots_independence_polls.xlsx
+(5) Scots_independence_polls.xlsx
 
 -- an excel file with one sheet, containing all the polls on the question "Should
    Scotland be an independent country?" from 2013-2017.
 
-(4) scot_polls.py
+(6) scot_polls.py
 
 -- a python script for visualising how support for Scottish Independence has varied
    over time.
 
 ---------------------
 
-(5) BES_2015_election_results.xlsx
-(6) hanretty_EU_ref_figs.xlsx
-(7) Westminster_Parliamentary_Constituencies_December_2016_Ultra_Generalised_Clipped_Boundaries_in_Great_Britain.geojson
+(7) BES_2015_election_results.xlsx
+(8) hanretty_EU_ref_figs.xlsx
+(9) Westminster_Parliamentary_Constituencies_December_2016_Ultra_Generalised_Clipped_Boundaries_in_Great_Britain.geojson
 
 -- files containing: the British Electoral Survey collated election & demographic data 
    for 2015, estimates for the EU referendum result in each constituency, and the 
    constituency boundaries and IDs in a .geojson file.
 
-(8) election_map_script.py
+(10) election_map_script.py
 
 -- script for making zoomable, colour-coded HTML maps of constituency based data, 
    currently written to produce such a map for the EU referendum result 
    (but this could easily be changed to plot e.g. demographic data.
 
-(9) bokeh_example_map.py
+(11) bokeh_example_map.py
 
 -- script for making zoomable, colour-coded, *interactive* maps of constituency data,
    currently written to produce such a map for the EU referendum result.
 
-(10) elections_ML.py
+(12) elections_ML.py
 
 -- script for using scikit-learn methods on the BES dataset to predict electoral outcomes;
    currently uses Lasso regression to predict the EU referendum result in each constituency
