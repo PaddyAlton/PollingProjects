@@ -1,141 +1,36 @@
 import numpy as np
 import pandas as pd
-import requests
 import janitor
 
-from contextlib import closing
-from bs4 import BeautifulSoup
-
-def is_good_response(response):
+def get_html_tables(url):
 
     """
-    is_good_response()
+    get_html_tables
 
-    Returns True if the response seems to be HTML, False otherwise
+    Wrapper function around the pandas read_html function to set the
+    correct keywords and apply the pyjanitor name-cleaning routine
 
     INPUTS:
-        response - response to a GET request
+        url - target URL from which to retrieve HTML tables (we only want
+              those that have the wikitable class)
 
     OUTPUTS:
-        good_response_flag
+        all_tables - list of retrieved tables
 
     """
 
-    content_type = response.headers.get('content-type')
+    kwargs = {
+        "attrs": {"class": "wikitable"},
+        "header": 0, # use row 0 as header
+        "skiprows": [1], # skip row 1 (0-based, i.e. the second row)
+        "na_values": ["–"],
+    }
 
-    return (
-        response.status_code == 200
-        and content_type is not None
-        and content_type.lower().find('text/html') > -1
-    )
+    wikitables = pd.read_html(url, **kwargs)
 
-def get_html_content(url):
+    all_tables = [t.clean_names(strip_underscores=True) for t in wikitables]
 
-    """
-    get_html_content()
-
-    INPUTS:
-        url - URL of the page from which to scrape content
-
-    OUTPUTS:
-        raw_html - HTML obtained via a GET request from the url
-
-    """
-
-    with closing(requests.get(url, stream=True)) as response:
-        if is_good_response(response):
-            return response.content
-    return None
-
-def unwrap_merged_cells(raw_row):
-
-    """
-    unwrap_merged_cells
-
-    """
-
-    cells = raw_row.find_all(["td", "th"])
-
-    colspans = [int(cell.get("colspan", 1)) - 1 for cell in cells]
-
-    unwrapped_row = np.hstack([
-        np.append([cell.text.strip('\n')], [np.nan for x in range(span)])
-        for cell, span in zip(cells, colspans)
-    ])
-
-    # clearly mark missing entries
-    cleaned_row = [
-        cell if cell not in ["", "N/A", "nan"]
-        else np.nan for cell in unwrapped_row
-    ]
-
-    return cleaned_row
-
-def html_to_dataframe(raw_table):
-
-    """
-    html_to_dataframe
-
-    INPUTS:
-        raw_table - HTML table as parsed by BeautifulSoup
-
-    OUTPUTS:
-        table - the same data represented as a pandas DataFrame
-
-    """
-
-    rows = raw_table.find_all("tr")
-
-    raw_rows = [unwrap_merged_cells(row) for row in rows]
-
-    column_headers = raw_rows[0]
-
-    table = pd.DataFrame(raw_rows[1:], columns=column_headers).dropna(how="all")
-
-    return table
-
-def is_wikitable(table):
-    """
-    is_wikitable
-
-    Checks whether an HTML table has 'wikitable' in its classes
-
-    INPUTS:
-        table - HTML table
-
-    OUTPUTS:
-        <boolean>
-
-    """
-    if table.get("class") is None:
-        return False
-    if "wikitable" in table.get("class"):
-        return True
-    return False
-
-def read_html(processed_html):
-
-    """
-    read_html
-
-    An alternative to the pandas read_html method, which can't handle
-    merged cells
-
-    INPUTS:
-        processed_html - HTML as-parsed by BeautifulSoup
-
-    OUTPUTS:
-        tables - list of DataFrames extracted from the HTML
-
-    """
-
-    all_tables_raw = processed_html.find_all("table")
-
-    data_tables = [table for table in all_tables_raw if is_wikitable(table)]
-
-    tables = [html_to_dataframe(raw_table) for raw_table in data_tables]
-
-    return tables
+    return all_tables
 
 def expected_table_years():
     """ calculates number of tables (1 per year) to expect and returns year-list """
@@ -171,25 +66,20 @@ def unify_tables(all_tables):
     for year, table in year_table_pairs:
 
         # first drop all events that aren't actually polling data:
-        null_check_cols = table.columns[4:].values
-        dropnull_table = table.copy().dropna(how='all', subset=null_check_cols)
+        dropnull_table = table.copy().dropna(subset=["pollster_client_s"])
 
         # next append the year to the 'Date(s)conducted' column:
         dc_with_year = (
-            dropnull_table
-                .loc[:, 'Date(s)conducted']
-                .map(lambda s: s + ' ' + str(year))
+            dropnull_table.date_s_conducted.map(lambda s: f"{s} {year}")
         )
 
-        dropnull_table['Date(s)conducted'] = dc_with_year.values
+        dropnull_table.loc[:, "date"] = dc_with_year.values
 
         # append this modified table, renaming column to the simpler 'date':
-        data_tables.append(
-            dropnull_table.rename_column("Date(s)conducted", "date")
-        )
+        data_tables.append(dropnull_table)
 
-    # join tables together, clean column names --> lower-case, spaces-to-underscores
-    all_polls = pd.concat(data_tables, sort=False).clean_names()
+    # join tables together, drop old date column name
+    all_polls = pd.concat(data_tables, sort=False).drop(columns=["date_s_conducted"])
 
     return all_polls
 
@@ -211,13 +101,14 @@ def render_numeric(dataframe):
 
     modified_dataframe = dataframe.copy()
 
-    modified_dataframe.loc[:, "samplesize"] = (
-        dataframe
-            .samplesize
-            .map(lambda s: int(s.replace(",", "")) if isinstance(s, str) else s)
-    )
+    column_names = modified_dataframe.columns
 
-    for col in dataframe.columns[4:]:
+    # identify columns containing values formatted as percentages
+    numeric_columns = [
+        col for col in column_names if modified_dataframe[col].str.endswith("%").any()
+    ]
+
+    for col in numeric_columns:
 
         numeric_series = (
             dataframe
@@ -225,10 +116,15 @@ def render_numeric(dataframe):
                 .map(lambda s: s.replace("%", "") if isinstance(s, str) else "")
                 .str.replace("Tie", "0")
                 .str.replace("\[.\]", "")
-                .map(lambda s: float(s) if s != "" else np.nan)
+                .str.replace("<1", "0") # <1% usually means they found 0 in-sample but are hedging
+                .map(lambda s: float(s) if s not in ["", "TBC"] else np.nan)
         )
 
         modified_dataframe.loc[:, col] = numeric_series
+
+
+    # convert non-missing sample-sizes to numeric type
+    modified_dataframe.loc[:, "samplesize"] = modified_dataframe.samplesize.astype(float)
 
     return modified_dataframe
 
@@ -327,7 +223,7 @@ def disaggregate_nationalist_data(dataframe):
     # check which rows have complete data
     is_complete = dataframe.isna().apply(np.any, axis=1).map(np.logical_not)
 
-    nationalists_complete = dataframe.loc[is_complete, ["plaid", "snp"]]
+    nationalists_complete = dataframe.loc[is_complete, ["plaid_cymru", "snp"]]
 
     ## YouGov data
 
@@ -336,14 +232,14 @@ def disaggregate_nationalist_data(dataframe):
 
     ratio = ( # get the average ratio between the two nationalist parties
         nationalists_complete
-            .plaid.div(nationalists_complete.snp).mean()
+            .plaid_cymru.div(nationalists_complete.snp).mean()
     )
 
     modified_dataframe.loc[is_yg, "snp"] = (
         dataframe.loc[is_yg, "snp"].mul(1 - ratio).map(np.round)
     )
 
-    modified_dataframe.loc[is_yg, "plaid"] = (
+    modified_dataframe.loc[is_yg, "plaid_cymru"] = (
         dataframe.loc[is_yg, "snp"].mul(ratio).map(np.round)
     )
 
@@ -351,13 +247,13 @@ def disaggregate_nationalist_data(dataframe):
 
     is_im = dataframe.polling_org == "Ipsos MORI"
 
-    needs_disaggregation = is_im & dataframe.plaid.isna()
+    needs_disaggregation = is_im & dataframe.plaid_cymru.isna()
 
     modified_dataframe.loc[needs_disaggregation, "snp"] = (
         dataframe.loc[needs_disaggregation, "snp"].mul(1 - ratio).map(np.round)
     )
 
-    modified_dataframe.loc[needs_disaggregation, "plaid"] = (
+    modified_dataframe.loc[needs_disaggregation, "plaid_cymru"] = (
         dataframe.loc[needs_disaggregation, "snp"].mul(ratio).map(np.round)
     )
 
@@ -384,19 +280,19 @@ def impute_small_parties(dataframe):
 
     # let's work on a common pattern
     no_snp = dataframe.snp.isna()
-    no_plaid = dataframe.plaid.isna()
+    no_plaid = dataframe.plaid_cymru.isna()
     no_green = dataframe.green.isna()
 
     no_small_parties = no_snp & no_plaid & no_green
 
     small_parties_total = (
         complete_data.snp
-        + complete_data.plaid
+        + complete_data.plaid_cymru
         + complete_data.green
-        + complete_data.others
+        + complete_data.other
     )
 
-    for party in ["snp", "plaid", "green", "others"]:
+    for party in ["snp", "plaid_cymru", "green", "other"]:
         modified_dataframe.loc[no_small_parties, party] = np.round(
             complete_data[party].mean() / small_parties_total.mean()
         )
@@ -411,20 +307,26 @@ def backfill_polls(dataframe):
     This method uses the standard fillna method "bfill", but then
     compares the original values to the imputed ones and sums these
     across all parties. This tells us the total imputed to each party and
-    we remove this from the 'others' column
+    we remove this from the 'other' column
 
     """
 
-    modified_dataframe = dataframe.copy()
+    numeric_columns = [
+        column for column in dataframe.columns
+        if (dataframe[column].dtype == np.float64) and (column != "samplesize")
+    ]
 
-    numeric_subset = dataframe.iloc[:, 5:] # numeric columns only
+    numeric_subset = dataframe.loc[:, numeric_columns] # numeric columns only
 
     numeric_subset_corr = numeric_subset.fillna(method="bfill")
 
-    imputed_vals = numeric_subset_corr.sub(numeric_subset.fillna(0)).apply(np.sum,axis=1)
+    imputed_total = numeric_subset_corr.sub(numeric_subset.fillna(0)).apply(np.sum,axis=1)
 
-    modified_dataframe.iloc[:, 5:] = numeric_subset_corr
-    modified_dataframe.loc[:, "others"] = dataframe.others.sub(imputed_vals)
+    modified_dataframe = dataframe.copy()
+
+    modified_dataframe.loc[:, numeric_columns] = numeric_subset_corr
+
+    modified_dataframe.loc[:, "other"] = dataframe.other.sub(imputed_total)
 
     return modified_dataframe
 
@@ -472,14 +374,11 @@ def download_and_transform():
 
     """
 
-    raw_html = get_html_content(
-        "https://en.wikipedia.org/wiki/"
-        "Opinion_polling_for_the_next_United_Kingdom_general_election"
-    )
+    target = "Opinion_polling_for_the_next_United_Kingdom_general_election"
 
-    processed_html = BeautifulSoup(raw_html, 'html.parser')
+    url = "https://en.wikipedia.org/wiki/" + target
 
-    all_tables = read_html(processed_html)
+    all_tables = get_html_tables(url)
 
     all_polls = (
         unify_tables(all_tables)
