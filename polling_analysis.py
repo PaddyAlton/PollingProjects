@@ -230,4 +230,4 @@ if __name__ == "__main__":
 
     ax = poll_plotter(polling_data, ax)
 
-    ax.set_xlim(pd.datetime(2019,3,1), pd.datetime.today())
+    ax.set_xlim(pd.datetime(2019,1,1), pd.datetime(2019,12,12))
