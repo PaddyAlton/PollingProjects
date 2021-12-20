@@ -69,11 +69,8 @@ def colour_defs():
         "lab": "#DC241F",
         "lib_dem": "#FAA61A",
         "snp": "#FEF987",
-        "plaid_cymru": "#008142",
-        "ukip": "#70147A",
         "green": "#6AB023",
-        "change_uk": "#222221",
-        "brexit": "#12B6CF",
+        "reform": "#12B6CF",
     }
 
 def clean_party_names():
@@ -88,11 +85,8 @@ def clean_party_names():
         "lab": "Lab",
         "lib_dem": "Lib Dem",
         "snp": "SNP",
-        "plaid_cymru": "Plaid Cymru",
-        "ukip": "UKIP",
         "green": "Green",
-        "change_uk": "ChUK",
-        "brexit": "Brexit",
+        "reform": "Reform",
     }
 
 def get_party_list():
@@ -113,9 +107,6 @@ def centered_ticklabels(ax):
     Centre the tick labels properly
 
     """
-
-    years = []
-
     for label in ax.get_xticklabels():
         label.set_horizontalalignment("center")
 
@@ -191,19 +182,19 @@ def poll_plotter(polling_data, ax):
             mpatches.Patch(color=v, label=name_lookup[k])
             for k, v in party_colours.items()
         ],
-        fontsize="xx-large",
-        ncol = 3,
+        fontsize="medium",
+        ncol = 6,
     )
 
-    ax.set_title("Opinion polling for the next UK general election", fontsize="xx-large")
-    ax.set_xlabel("Date", fontsize="x-large")
-    ax.set_ylabel("%", fontsize="x-large")
+    ax.set_title("Opinion polling for the next UK general election", fontsize="x-large")
+    ax.set_xlabel("Date", fontsize="large")
+    ax.set_ylabel("%", fontsize="large")
 
-    ax.set_ylim(0, 55)
+    ax.set_ylim(0, 60)
 
     # tick labelling:
 
-    ax.tick_params(labelsize="large")
+    ax.tick_params(labelsize="x-small")
 
     ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
 
@@ -211,8 +202,8 @@ def poll_plotter(polling_data, ax):
 
     concise_date_formatter = mdates.ConciseDateFormatter(
         locator,
-        formats = ["%Y", "%B", "%d", "%H:%M", "%H:%M", "%S.%f"],
-        zero_formats = ["", "%B\n%Y", "%b", "%b-%d", "%H:%M", "%H:%M"],
+        formats = ["%Y", "%b", "%d", "%H:%M", "%H:%M", "%S.%f"],
+        zero_formats = ["", "%b\n%Y", "%b", "%b-%d", "%H:%M", "%H:%M"],
         show_offset = False,
     )
 
@@ -230,4 +221,6 @@ if __name__ == "__main__":
 
     ax = poll_plotter(polling_data, ax)
 
-    ax.set_xlim(pd.datetime(2019,1,1), pd.datetime(2019,12,12))
+    xlim = ax.set_xlim(pd.datetime(2019,12,19), pd.datetime(2022,1,1))
+
+    plt.tight_layout()

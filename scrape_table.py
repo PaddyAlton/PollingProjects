@@ -1,6 +1,8 @@
 import numpy as np
+import os
 import pandas as pd
 import janitor
+
 
 def get_html_tables(url):
 
@@ -23,7 +25,7 @@ def get_html_tables(url):
         "attrs": {"class": "wikitable"},
         "header": 0, # use row 0 as header
         "skiprows": [1], # skip row 1 (0-based, i.e. the second row)
-        "na_values": ["–", "TBC"],
+        "na_values": ["–", "TBC", "?%"],
     }
 
     wikitables = pd.read_html(url, **kwargs)
@@ -32,11 +34,31 @@ def get_html_tables(url):
 
     return all_tables
 
+
 def expected_table_years():
-    """ calculates number of tables (1 per year) to expect and returns year-list """
-    last_election_in = 2017
+    """
+    expected_table_years
+
+    Calculates number of tables (1 per year) to expect and returns year-list
+
+    NB - some trouble with this since the 2019 election was so late that 
+         polls only picked up again in 2020 (for that case, pretend eg the
+         last election happened in 2020, not 2019)
+
+    """
+    last_election_in = int(os.getenv("LAST_ELECTION_YEAR", 2020))
     current_year = pd.datetime.today().year
     return current_year - np.arange(current_year - last_election_in + 1)
+
+
+def drop_nonpoll_events(table):
+    """Removes events from a table if they aren't polling data"""
+    cleaned = table.copy()
+    cleaned = cleaned.dropna(subset=["pollster"])
+    # another sign is that disparate cells have the same value
+    cleaned = cleaned.loc[cleaned.pollster != cleaned.area]
+    return cleaned
+
 
 def unify_tables(all_tables):
 
@@ -66,11 +88,15 @@ def unify_tables(all_tables):
     for year, table in year_table_pairs:
 
         # first drop all events that aren't actually polling data:
-        dropnull_table = table.copy().dropna(subset=["pollster_client_s"])
+        dropnull_table = drop_nonpoll_events(table)
+
+        # rename 'brexit' to 'reform' for consistency
+        if "brexit" in dropnull_table.columns:
+            dropnull_table = dropnull_table.rename_column("brexit", "reform")
 
         # next append the year to the 'Date(s)conducted' column:
         dc_with_year = (
-            dropnull_table.date_s_conducted.map(lambda s: f"{s} {year}")
+            dropnull_table.datesconducted.map(lambda s: f"{s} {year}")
         )
 
         dropnull_table.loc[:, "date"] = dc_with_year.values
@@ -79,9 +105,10 @@ def unify_tables(all_tables):
         data_tables.append(dropnull_table)
 
     # join tables together, drop old date column name
-    all_polls = pd.concat(data_tables, sort=False).drop(columns=["date_s_conducted"])
+    all_polls = pd.concat(data_tables, sort=False).drop(columns=["datesconducted"])
 
     return all_polls
+
 
 def render_numeric(dataframe):
 
@@ -113,6 +140,7 @@ def render_numeric(dataframe):
         numeric_series = (
             dataframe
                 .loc[:, col] # extract series, convert percentage to float
+                .map(lambda s: s.split("%")[0]+"%" if isinstance(s, str) else s)
                 .map(lambda s: s.replace("%", "") if isinstance(s, str) else "")
                 .str.replace("Tie", "0")
                 .str.replace("\[.\]", "")
@@ -127,6 +155,7 @@ def render_numeric(dataframe):
     modified_dataframe.loc[:, "samplesize"] = modified_dataframe.samplesize.astype(float)
 
     return modified_dataframe
+
 
 def parse_polling_dates(dataframe):
 
@@ -168,6 +197,7 @@ def parse_polling_dates(dataframe):
 
     return modified_dataframe
 
+
 def parse_polling_org(dataframe):
 
     """
@@ -187,7 +217,7 @@ def parse_polling_org(dataframe):
 
     """
 
-    polling_org = dataframe.loc[:, "pollster_client_s"]
+    polling_org = dataframe.loc[:, "pollster"]
 
     attempted_split = polling_org.str.split('/')
 
@@ -195,7 +225,7 @@ def parse_polling_org(dataframe):
 
     client = attempted_split.map(lambda L: L[1] if len(L) == 2 else np.nan)
 
-    modified_dataframe = dataframe.remove_columns(["pollster_client_s"])
+    modified_dataframe = dataframe.remove_columns(["pollster"])
 
     col_order = list(modified_dataframe.copy().columns.values)
     col_order.insert(1, 'polling_client')
@@ -205,6 +235,7 @@ def parse_polling_org(dataframe):
     modified_dataframe.loc[:, 'polling_client'] = client
 
     return modified_dataframe.loc[:, col_order]
+
 
 def disaggregate_nationalist_data(dataframe):
 
@@ -259,6 +290,7 @@ def disaggregate_nationalist_data(dataframe):
 
     return modified_dataframe
 
+
 def impute_small_parties(dataframe):
 
     """
@@ -280,24 +312,23 @@ def impute_small_parties(dataframe):
 
     # let's work on a common pattern
     no_snp = dataframe.snp.isna()
-    no_plaid = dataframe.plaid_cymru.isna()
     no_green = dataframe.green.isna()
 
-    no_small_parties = no_snp & no_plaid & no_green
+    no_small_parties = no_snp & no_green
 
     small_parties_total = (
         complete_data.snp
-        + complete_data.plaid_cymru
         + complete_data.green
-        + complete_data.other
+        + complete_data.others
     )
 
-    for party in ["snp", "plaid_cymru", "green", "other"]:
+    for party in ["snp", "green", "others"]:
         modified_dataframe.loc[no_small_parties, party] = np.round(
             complete_data[party].mean() / small_parties_total.mean()
         )
 
     return modified_dataframe
+
 
 def backfill_polls(dataframe):
 
@@ -326,7 +357,7 @@ def backfill_polls(dataframe):
 
     modified_dataframe.loc[:, numeric_columns] = numeric_subset_corr
 
-    modified_dataframe.loc[:, "other"] = dataframe.other.sub(imputed_total)
+    modified_dataframe.loc[:, "others"] = dataframe.others.sub(imputed_total)
 
     return modified_dataframe
 
@@ -348,8 +379,7 @@ def parse_minor_parties(dataframe):
 
     """
 
-    modified_dataframe = disaggregate_nationalist_data(dataframe)
-    modified_dataframe = impute_small_parties(modified_dataframe)
+    modified_dataframe = impute_small_parties(dataframe)
     modified_dataframe = backfill_polls(modified_dataframe)
 
     return modified_dataframe
