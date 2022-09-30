@@ -25,7 +25,7 @@ def get_html_tables(url):
         "attrs": {"class": "wikitable"},
         "header": 0, # use row 0 as header
         "skiprows": [1], # skip row 1 (0-based, i.e. the second row)
-        "na_values": ["–", "TBC", "?%"],
+        "na_values": ["–", "TBC", "TBA", "?%"],
     }
 
     wikitables = pd.read_html(url, **kwargs)
@@ -145,7 +145,7 @@ def render_numeric(dataframe):
                 .str.replace("Tie", "0")
                 .str.replace("\[.\]", "")
                 .str.replace("<1", "0") # <1% usually means they found 0 in-sample but are hedging
-                .map(lambda s: float(s) if s not in ["", "TBC"] else np.nan)
+                .map(lambda s: np.nan if s in ["", "?", "TBC", "TBA"] else float(s))
         )
 
         modified_dataframe.loc[:, col] = numeric_series
