@@ -14,6 +14,8 @@ import seaborn as sns; sns.set_style("white"); sns.set_color_codes()
 
 import statsmodels.api as smod
 
+from datetime import date
+
 from scrape_table import download_and_transform
 
 if not hasattr(pd.DataFrame, "get_sampling_uncertainty"):
@@ -182,19 +184,19 @@ def poll_plotter(polling_data, ax):
             mpatches.Patch(color=v, label=name_lookup[k])
             for k, v in party_colours.items()
         ],
-        fontsize="medium",
+        fontsize="x-large",
         ncol = 6,
     )
 
-    ax.set_title("Opinion polling for the next UK general election", fontsize="x-large")
-    ax.set_xlabel("Date", fontsize="large")
-    ax.set_ylabel("%", fontsize="large")
+    ax.set_title("Opinion polling for the next UK general election", fontsize="xx-large")
+    ax.set_xlabel("Date", fontsize="x-large")
+    ax.set_ylabel("%", fontsize="x-large")
 
     ax.set_ylim(0, 60)
 
     # tick labelling:
 
-    ax.tick_params(labelsize="x-small")
+    ax.tick_params(labelsize="medium")
 
     ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
 
@@ -221,6 +223,6 @@ if __name__ == "__main__":
 
     ax = poll_plotter(polling_data, ax)
 
-    xlim = ax.set_xlim(pd.datetime(2019,12,19), pd.datetime(2022,1,1))
+    xlim = ax.set_xlim(date(2019,12,19), date.today())
 
     plt.tight_layout()
