@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pandas_flavor
 
-import matplotlib.pyplot as plt; plt.ion()
+import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.dates as mdates
 
@@ -69,7 +69,7 @@ def colour_defs():
     return {
         "con": "#0087DC",
         "lab": "#DC241F",
-        "lib_dem": "#FAA61A",
+        "lib_dems": "#FAA61A",
         "snp": "#FEF987",
         "green": "#6AB023",
         "reform": "#12B6CF",
@@ -85,7 +85,7 @@ def clean_party_names():
     return {
         "con": "Con",
         "lab": "Lab",
-        "lib_dem": "Lib Dem",
+        "lib_dems": "Lib Dem",
         "snp": "SNP",
         "green": "Green",
         "reform": "Reform",
@@ -93,7 +93,7 @@ def clean_party_names():
 
 def get_party_list():
     return [
-        "con", "lab", "lib_dem", "ukip", "green", "snp", "plaid_cymru"
+        "con", "lab", "lib_dems", "ukip", "green", "snp", "plaid_cymru"
     ]
 
 def get_palette():
@@ -121,15 +121,15 @@ def add_trendline(data, uncertainty, plot_clr, ax=None):
 
     This function converts a Series extracted from a DataFrame into
     a rolling average using LOWESS (locally weighted scatterplot
-    smoothing). The procedure is a nine-poll smoothing. The function
-    adds the line to a plot and also adds the polling uncertainty
-    to it as a shaded region.
+    smoothing). The procedure is a fourteen-poll smoothing.
+    The function adds the line to a plot and also adds the polling
+    uncertainty to it as a shaded region.
 
     """
 
     n_vals = data.dropna().size
 
-    smoothed_data = smod.nonparametric.lowess(data.values, data.index, frac=9/n_vals)
+    smoothed_data = smod.nonparametric.lowess(data.values, data.index, frac=14/n_vals)
 
     trendline = pd.Series(
         smoothed_data[:, 1],
@@ -173,7 +173,7 @@ def poll_plotter(polling_data, ax):
 
     for party, clr in zip(parties, palette):
         data = polling_data[party]
-        uncertainty = polling_data.get_sampling_uncertainty(party, "samplesize").mul(2.0)
+        uncertainty = polling_data.get_sampling_uncertainty(party, "sample_size").mul(2.0)
         ax = add_trendline(data, uncertainty, clr, ax=ax)
 
     # format the plot
@@ -226,3 +226,5 @@ if __name__ == "__main__":
     xlim = ax.set_xlim(date(2019,12,19), date.today())
 
     plt.tight_layout()
+
+    plt.show()

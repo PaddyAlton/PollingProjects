@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import janitor
 
+from datetime import datetime
+
 
 def get_html_tables(url):
 
@@ -47,7 +49,7 @@ def expected_table_years():
 
     """
     last_election_in = int(os.getenv("LAST_ELECTION_YEAR", 2020))
-    current_year = pd.datetime.today().year
+    current_year = datetime.today().year
     return current_year - np.arange(current_year - last_election_in + 1)
 
 
@@ -96,7 +98,7 @@ def unify_tables(all_tables):
 
         # next append the year to the 'Date(s)conducted' column:
         dc_with_year = (
-            dropnull_table.datesconducted.map(lambda s: f"{s} {year}")
+            dropnull_table.dates_conducted.map(lambda s: f"{s} {year}")
         )
 
         dropnull_table.loc[:, "date"] = dc_with_year.values
@@ -105,9 +107,15 @@ def unify_tables(all_tables):
         data_tables.append(dropnull_table)
 
     # join tables together, drop old date column name
-    all_polls = pd.concat(data_tables, sort=False).drop(columns=["datesconducted"])
+    all_polls = pd.concat(data_tables, sort=False).drop(columns=["dates_conducted"])
 
     return all_polls
+
+
+def parse_nans(value: str):
+    if value not in ["", "—", "?", "TBC", "TBA"]:
+        return float(value)
+    return np.nan
 
 
 def render_numeric(dataframe):
@@ -143,16 +151,16 @@ def render_numeric(dataframe):
                 .map(lambda s: s.split("%")[0]+"%" if isinstance(s, str) else s)
                 .map(lambda s: s.replace("%", "") if isinstance(s, str) else "")
                 .str.replace("Tie", "0")
-                .str.replace("\[.\]", "")
+                .str.replace(r"\[.\]", "")
                 .str.replace("<1", "0") # <1% usually means they found 0 in-sample but are hedging
-                .map(lambda s: np.nan if s in ["", "?", "TBC", "TBA"] else float(s))
+                .map(parse_nans)
         )
 
         modified_dataframe.loc[:, col] = numeric_series
 
 
     # convert non-missing sample-sizes to numeric type
-    modified_dataframe.loc[:, "samplesize"] = modified_dataframe.samplesize.astype(float)
+    modified_dataframe.loc[:, "sample_size"] = modified_dataframe.sample_size.map(parse_nans)
 
     return modified_dataframe
 
@@ -189,7 +197,7 @@ def parse_polling_dates(dataframe):
             .map(lambda L: L[-1])
     )
 
-    as_dt = pd.to_datetime(final_date)
+    as_dt = pd.to_datetime(final_date, format="mixed")
 
     modified_dataframe = dataframe.copy()
 
@@ -344,7 +352,7 @@ def backfill_polls(dataframe):
 
     numeric_columns = [
         column for column in dataframe.columns
-        if (dataframe[column].dtype == np.float64) and (column != "samplesize")
+        if (dataframe[column].dtype == np.float64) and (column != "sample_size")
     ]
 
     numeric_subset = dataframe.loc[:, numeric_columns] # numeric columns only
