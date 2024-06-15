@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import pandas as pd
+import re
 import janitor
 
 from datetime import datetime
@@ -229,7 +230,11 @@ def parse_polling_org(dataframe):
 
     attempted_split = polling_org.str.split('/')
 
-    organisation = attempted_split.map(lambda L: L[0])
+    organisation = (
+        attempted_split
+        .map(lambda L: L[0])
+        .map(lambda x: re.sub(r"\[[^\]]*\]", "", x))
+    )
 
     client = attempted_split.map(lambda L: L[1] if len(L) == 2 else np.nan)
 
@@ -392,6 +397,18 @@ def parse_minor_parties(dataframe):
 
     return modified_dataframe
 
+
+def tweak(dataframe):
+
+    modified_dataframe = dataframe.copy()
+
+    msk = modified_dataframe.polling_org.str.startswith("Redfield")
+
+    modified_dataframe.loc[msk, "polling_org"] = "Redfield & Wilton"
+
+    return modified_dataframe
+
+
 def download_and_transform():
 
     """
@@ -424,6 +441,7 @@ def download_and_transform():
             .pipe(parse_polling_dates)
             .pipe(parse_polling_org)
             .pipe(parse_minor_parties)
+            .pipe(tweak)
             .set_index("date")
     )
 

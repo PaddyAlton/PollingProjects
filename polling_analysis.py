@@ -114,7 +114,7 @@ def centered_ticklabels(ax):
 
     return ax
 
-def add_trendline(data, uncertainty, plot_clr, ax=None):
+def add_trendline(data, uncertainty, plot_clr, ax=None, with_uncertainty=True):
 
     """
     add_trendline
@@ -143,13 +143,14 @@ def add_trendline(data, uncertainty, plot_clr, ax=None):
 
     error = np.interp(trendline.index, uncertainty.index, uncertainty.values)
 
-    ax.fill_between(
-        trendline.index,
-        trendline-error,
-        trendline+error,
-        color=plot_clr,
-        alpha=0.5,
-    )
+    if with_uncertainty:
+        ax.fill_between(
+            trendline.index,
+            trendline-error,
+            trendline+error,
+            color=plot_clr,
+            alpha=0.5,
+        )
 
     return ax
 
@@ -174,7 +175,7 @@ def poll_plotter(polling_data, ax):
     for party, clr in zip(parties, palette):
         data = polling_data[party]
         uncertainty = polling_data.get_sampling_uncertainty(party, "sample_size").mul(2.0)
-        ax = add_trendline(data, uncertainty, clr, ax=ax)
+        ax = add_trendline(data, uncertainty, clr, ax=ax, with_uncertainty=True)
 
     # format the plot
     name_lookup = clean_party_names()
@@ -223,8 +224,13 @@ if __name__ == "__main__":
 
     ax = poll_plotter(polling_data, ax)
 
-    xlim = ax.set_xlim(date(2019,12,19), date.today())
+    last_election_date = date(2019,12,19)
+    election_date = date(2024,7,4)
 
-    plt.tight_layout()
+    xlim = ax.set_xlim(date(2024,1,1), election_date)
+
+    election_called = ax.axvline(date(2024,5,22), color="k", zorder=-1)
+
+    #plt.tight_layout()
 
     plt.show()
