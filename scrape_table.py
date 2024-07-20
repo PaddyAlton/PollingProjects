@@ -398,17 +398,6 @@ def parse_minor_parties(dataframe):
     return modified_dataframe
 
 
-def tweak(dataframe):
-
-    modified_dataframe = dataframe.copy()
-
-    msk = modified_dataframe.polling_org.str.startswith("Redfield")
-
-    modified_dataframe.loc[msk, "polling_org"] = "Redfield & Wilton"
-
-    return modified_dataframe
-
-
 def download_and_transform():
 
     """
@@ -429,7 +418,7 @@ def download_and_transform():
 
     """
 
-    target = "Opinion_polling_for_the_next_United_Kingdom_general_election"
+    target = "Opinion_polling_for_the_2024_United_Kingdom_general_election"
 
     url = "https://en.wikipedia.org/wiki/" + target
 
@@ -441,7 +430,6 @@ def download_and_transform():
             .pipe(parse_polling_dates)
             .pipe(parse_polling_org)
             .pipe(parse_minor_parties)
-            .pipe(tweak)
             .set_index("date")
     )
 

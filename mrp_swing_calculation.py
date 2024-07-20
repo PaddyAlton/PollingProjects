@@ -39,13 +39,13 @@ def import_full_dataset() -> gpd.GeoDataFrame:
     constituency_df = gpd.read_file("assets/constituencies_2024_BFC.geojson")
 
     # the latest YouGov projections for each constituency
-    mrp_results = pd.read_excel("yougov_mrp/results_030624.xlsx")
+    mrp_results = pd.read_excel("yougov_mrp/results_190624.xlsx")
 
     # join via complex condition: either the constituency code or name matches
     combined_df = (
         constituency_df
         .join(mrp_results, how="cross")
-        .query("PCON24NM == constituency | PCON24CD == const")
+        .query("PCON24NM == area | PCON24CD == const")
     )
 
     return combined_df
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     filtered_result = swing_result.loc[msk]
 
-    mrp_map = filtered_result.explore(
+    mrp_map = combined_df.explore(
         column="WinnerGE2024",
         tiles="CartoDB positron",
         cmap=colour_list,

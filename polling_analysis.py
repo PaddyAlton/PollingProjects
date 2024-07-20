@@ -121,7 +121,7 @@ def add_trendline(data, uncertainty, plot_clr, ax=None, with_uncertainty=True):
 
     This function converts a Series extracted from a DataFrame into
     a rolling average using LOWESS (locally weighted scatterplot
-    smoothing). The procedure is a fourteen-poll smoothing.
+    smoothing). The procedure is a twenty-one-poll smoothing.
     The function adds the line to a plot and also adds the polling
     uncertainty to it as a shaded region.
 
@@ -129,7 +129,7 @@ def add_trendline(data, uncertainty, plot_clr, ax=None, with_uncertainty=True):
 
     n_vals = data.dropna().size
 
-    smoothed_data = smod.nonparametric.lowess(data.values, data.index, frac=14/n_vals)
+    smoothed_data = smod.nonparametric.lowess(data.values, data.index, frac=28/n_vals)
 
     trendline = pd.Series(
         smoothed_data[:, 1],
@@ -227,10 +227,12 @@ if __name__ == "__main__":
     last_election_date = date(2019,12,19)
     election_date = date(2024,7,4)
 
-    xlim = ax.set_xlim(date(2024,1,1), election_date)
+    xlim = ax.set_xlim(date(2024,5,1), election_date)
 
     election_called = ax.axvline(date(2024,5,22), color="k", zorder=-1)
 
     #plt.tight_layout()
+
+    plt.grid(axis="y")
 
     plt.show()

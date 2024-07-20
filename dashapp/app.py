@@ -14,8 +14,8 @@ def renamer(col):
     return col
 
 
-gdf = read_file("assets/constituencies_2024_BFC.geojson")
-mrp_results = pd.read_excel("yougov_mrp/results_030624.xlsx").rename(renamer, axis="columns")
+gdf = read_file("assets/constituencies_2024_BGC.geojson")
+mrp_results = pd.read_excel("yougov_mrp/results_190624.xlsx").rename(renamer, axis="columns")
 
 with open("assets/constituencies_2024_BFC.geojson") as fob:
     geojson = json.load(fob)

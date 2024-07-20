@@ -1,0 +1,124 @@
+import os
+
+from glob import glob
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+
+
+def get_consensus_winners(combined_predictions: pd.DataFrame) -> pd.Series:
+
+    predictions = combined_predictions.copy()
+
+    parties = predictions.columns
+
+    predictions["winner"] = predictions.apply(lambda row: parties[np.argmax(row)], axis="columns")
+    
+    by_const = predictions.winner.reset_index().pivot(index="PCON24CD", values="winner", columns="pollster").fillna("Unknown")
+
+    const_winners = by_const.copy()
+
+    for party in parties:
+        const_winners[party] = by_const.apply(lambda row: all([w == party for w in row]), axis="columns")
+
+    const_winners = const_winners[parties]
+    const_winners["Unknown"] = const_winners[parties].sum(axis="columns").eq(0)
+
+    consensus_winners = const_winners.apply(lambda row: const_winners.columns[np.argmax(row)], axis="columns")
+
+    return consensus_winners
+
+
+def get_modal_winners(combined_predictions: pd.DataFrame) -> pd.Series:
+
+    predictions = combined_predictions.copy()
+
+    parties = predictions.columns
+
+    predictions["winner"] = predictions.apply(lambda row: parties[np.argmax(row)], axis="columns")
+    
+    by_const = predictions.winner.reset_index().pivot(index="PCON24CD", values="winner", columns="pollster").fillna("No Prediction")
+
+    consensus_winners = by_const.mode(axis="columns")
+
+    unclear_situation = consensus_winners[1].notna()  # this means an exactly split decision
+
+    consensus_winners["winner"] = consensus_winners[0]
+    consensus_winners.loc[unclear_situation, "winner"] = "Unknown"
+
+    return consensus_winners["winner"]
+
+
+def import_constituencies():
+    # the .geojson with boundaries and IDs
+    # from 
+    # https://www.data.gov.uk/dataset/78e0c4f0-237f-41be-a81e-9888a8d93f28/westminster-parliamentary-constituencies-july-2024-boundaries-uk-bfc
+    return gpd.read_file("assets/constituencies_2024_BGC.geojson")
+
+
+def colour_map() -> tuple[list[str], list[str]]:
+    """
+    colour_map
+
+    Custom colour map; returns two lists, one containing
+    parties and the other containing hex codes
+
+    """
+    mappings = {
+        "Con": "#0087DC",
+        "Lab": "#DC241F",
+        "LibDem": "#FAA61A",
+        "SNP": "#FEF987",
+        "Green": "#6AB023",
+        "Reform": "#12B6CF",
+        "Plaid": "#008142",
+        "Other": "#FC0FC0",
+        "Unknown": "#D3D3D3",
+    }
+
+    return list(mappings.keys()), list(mappings.values())
+
+
+if __name__ == "__main__":
+
+    mrp_path = os.getenv("MRP_DIR")
+
+    mrp_files = glob(f"{mrp_path}*.xlsx")
+
+    results = []
+
+    column_list = ["PCON24CD", "Con", "Lab", "LibDem", "Reform", "Green", "Plaid", "SNP", "Other"]
+
+    for fl in mrp_files:
+
+        pollster = fl.split("/")[-1].split("_")[0]
+
+        df = pd.read_excel(fl)[column_list]
+        df["pollster"] = pollster
+
+        results.append(df)
+
+    predictions = pd.concat(results, axis="rows").set_index(["pollster", "PCON24CD"]).fillna(0)
+
+    swing_predictions = predictions.copy()
+    swing_predictions["Con"] = predictions.Con.add(2*0.0167)
+    swing_predictions["Reform"] = predictions.Reform.sub(2*0.0167)
+
+    consensus_winners = swing_predictions.pipe(get_modal_winners).rename("consensus_winner")
+
+    constituency_df = import_constituencies()
+
+    combined_dataset = constituency_df.join(consensus_winners, on="PCON24CD")
+    
+    party_list, colour_list = colour_map()
+
+    mrp_map = combined_dataset.explore(
+        column="consensus_winner",
+        tiles="CartoDB positron",
+        cmap=colour_list,
+        categories=party_list,
+        style_kwds={"fillOpacity": 1.0, "color": "white", "weight": 1},
+    )
+
+    mrp_map.save("assets/mrp_wisdom_of_crowds_map_big_swing.html")
